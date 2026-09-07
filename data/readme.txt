@@ -9,3 +9,6 @@ To reproduce the analysis:
 1. Download the source dataset.
 2. Save the project dataset as `Final_data.csv`.
 3. Place it inside this `data/` directory.
+
+Dataset source:
+Jockeroika. (2024). *Life Style Data*. Kaggle.
