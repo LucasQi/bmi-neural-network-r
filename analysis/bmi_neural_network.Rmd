@@ -1,0 +1,384 @@
+---
+title: "BMI Prediction with a Neural Network in R"
+author: "Fei Qi"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    theme: flatly
+    code_folding: show
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  warning = FALSE,
+  message = FALSE,
+  fig.width = 8,
+  fig.height = 5
+)
+```
+
+# Project Context
+
+This file contains the cleaned portfolio version of my individual contribution to a
+four-person AMS 597 Statistical Computing team project at Stony Brook University.
+
+My contribution focused on Research Question 3: predicting BMI with a neural-network
+regression model while excluding height and weight from the predictor set.
+
+The original team submission should be retained separately as the historical course
+deliverable. This portfolio version isolates Question 3 and corrects the predictor
+exclusion logic so that height and weight are explicitly removed before dummy encoding.
+
+# 1. Libraries
+
+```{r}
+required <- c(
+  "tidyverse",
+  "caret",
+  "nnet",
+  "NeuralNetTools"
+)
+
+new_pkgs <- required[!required %in% installed.packages()[, "Package"]]
+if (length(new_pkgs)) {
+  install.packages(new_pkgs, dependencies = TRUE)
+}
+
+library(tidyverse)
+library(caret)
+library(nnet)
+library(NeuralNetTools)
+```
+
+# 2. Load Data
+
+Place the source dataset at `data/Final_data.csv`.
+
+```{r}
+set.seed(123)
+
+data_path <- ("Final_data.csv")
+
+if (!file.exists(data_path)) {
+  stop(
+    "Dataset not found. Place Final_data.csv in the data/ directory before running."
+  )
+}
+
+data <- read.csv(data_path, header = TRUE)
+
+cat("Raw dimensions:", dim(data), "\n")
+```
+
+# 3. Shared Data Cleaning
+
+The original team project removed leakage variables, redundant engineered features,
+and high-cardinality text fields before modeling.
+
+```{r}
+drop_cols <- c(
+  # Variables derived from / containing Calories_Burned
+  "Burns_Calories_Bin",
+  "expected_burn",
+  "cal_balance",
+  "Burns.Calories..per.30.min._bc",
+
+  # Redundant engineered features
+  "BMI_calc",
+  "cal_from_macros",
+  "pct_carbs",
+  "protein_per_kg",
+  "pct_HRR",
+  "pct_maxHR",
+  "lean_mass_kg",
+
+  # High-cardinality text variables
+  "meal_name",
+  "Name.of.Exercise",
+  "Benefit",
+  "Target.Muscle.Group",
+  "Equipment.Needed",
+  "Workout"
+)
+
+cleaned_data <- data %>%
+  select(-all_of(drop_cols))
+
+cleaned_data$Difficulty.Level <- dplyr::recode(
+  cleaned_data$Difficulty.Level,
+  "Beginner" = 0L,
+  "Intermediate" = 1L,
+  "Advanced" = 2L
+)
+
+cleaned_data$Gender <- ifelse(
+  cleaned_data$Gender == "Male",
+  1L,
+  0L
+)
+
+nominal_cats <- c(
+  "Workout_Type",
+  "meal_type",
+  "diet_type",
+  "cooking_method",
+  "Body.Part",
+  "Type.of.Muscle"
+)
+
+cleaned_data[nominal_cats] <- lapply(
+  cleaned_data[nominal_cats],
+  as.factor
+)
+
+cat("Cleaned dimensions:", dim(cleaned_data), "\n")
+cat("Missing values:", sum(is.na(cleaned_data)), "\n")
+cat("Duplicate rows:", sum(duplicated(cleaned_data)), "\n")
+```
+
+# 4. Train / Test Split
+
+Because BMI is the response variable for this portfolio analysis, the split is created
+with respect to BMI rather than the response used by another team's research question.
+
+```{r}
+set.seed(123)
+
+train_idx <- createDataPartition(
+  cleaned_data$BMI,
+  p = 0.80,
+  list = FALSE
+)
+
+train_raw <- cleaned_data[train_idx, ]
+test_raw  <- cleaned_data[-train_idx, ]
+
+cat("Training rows:", nrow(train_raw), "\n")
+cat("Test rows:", nrow(test_raw), "\n")
+```
+
+# 5. Exploratory Data Analysis
+
+## BMI by Diet Type
+
+```{r}
+ggplot(train_raw, aes(x = diet_type, y = BMI, fill = diet_type)) +
+  geom_boxplot() +
+  coord_flip() +
+  labs(
+    title = "BMI Distribution by Diet Type",
+    x = "Dietary Category",
+    y = "BMI"
+  ) +
+  theme_minimal() +
+  guides(fill = "none")
+```
+
+## Fat Percentage vs. BMI
+
+```{r}
+ggplot(train_raw, aes(x = Fat_Percentage, y = BMI)) +
+  geom_point(alpha = 0.3) +
+  geom_smooth(method = "gam") +
+  labs(
+    title = "Fat Percentage vs. BMI",
+    x = "Body Fat Percentage",
+    y = "BMI"
+  ) +
+  theme_minimal()
+```
+
+# 6. Prepare Predictors
+
+BMI is calculated directly from height and weight, so both are explicitly excluded.
+`Calories` is also removed because the original analysis found that it behaved as a
+strong proxy and produced suspiciously high predictive performance.
+
+```{r}
+q3_drop <- c(
+  "Height..m.",
+  "Weight..kg.",
+  "Calories"
+)
+
+q3_train <- train_raw %>%
+  select(-any_of(q3_drop))
+
+q3_test <- test_raw %>%
+  select(-any_of(q3_drop))
+
+stopifnot(!"Height..m." %in% names(q3_train))
+stopifnot(!"Weight..kg." %in% names(q3_train))
+stopifnot(!"Calories" %in% names(q3_train))
+```
+
+## Dummy Encoding
+
+```{r}
+dummy_model <- dummyVars(
+  BMI ~ .,
+  data = q3_train,
+  fullRank = TRUE
+)
+
+x_train <- predict(
+  dummy_model,
+  newdata = q3_train
+)
+
+x_test <- predict(
+  dummy_model,
+  newdata = q3_test
+)
+
+train_nn <- data.frame(
+  BMI = q3_train$BMI,
+  x_train
+)
+
+test_nn <- data.frame(
+  BMI = q3_test$BMI,
+  x_test
+)
+
+cat("Model predictor count:", ncol(train_nn) - 1, "\n")
+```
+
+# 7. Neural Network Tuning
+
+A one-hidden-layer neural network is trained with the `nnet` method through `caret`.
+Five-fold cross-validation evaluates combinations of hidden-layer size and weight decay.
+
+The original project trained the neural network on a 2,000-row subset to reduce
+computational cost; that design is retained here for comparability.
+
+```{r}
+set.seed(123)
+
+subset_idx <- sample(
+  seq_len(nrow(train_nn)),
+  min(2000, nrow(train_nn))
+)
+
+train_subset <- train_nn[subset_idx, ]
+
+ctrl <- trainControl(
+  method = "cv",
+  number = 5
+)
+
+grid <- expand.grid(
+  size = c(3, 5, 7),
+  decay = c(0.1, 0.5)
+)
+
+nn_model <- train(
+  BMI ~ .,
+  data = train_subset,
+  method = "nnet",
+  trControl = ctrl,
+  tuneGrid = grid,
+  preProcess = c("nzv", "center", "scale"),
+  linout = TRUE,
+  trace = FALSE,
+  maxit = 1000,
+  MaxNWts = 5000
+)
+
+nn_model$bestTune
+```
+
+# 8. Predictor Importance
+
+`varImp()` is used to describe relative predictor importance. These scores should not
+be interpreted as statistical significance tests.
+
+```{r}
+importance <- varImp(nn_model)
+
+plot(
+  importance,
+  top = 10,
+  main = "Top 10 Predictors of BMI"
+)
+```
+
+# 9. Held-Out Test Evaluation
+
+```{r}
+nn_pred <- predict(
+  nn_model,
+  newdata = test_nn
+)
+
+results <- data.frame(
+  RMSE = RMSE(nn_pred, test_nn$BMI),
+  MAE  = MAE(nn_pred, test_nn$BMI),
+  R2   = R2(nn_pred, test_nn$BMI)
+)
+
+print(results)
+```
+
+## Actual vs. Predicted BMI
+
+```{r}
+ggplot(
+  data.frame(
+    Actual = test_nn$BMI,
+    Predicted = nn_pred
+  ),
+  aes(x = Actual, y = Predicted)
+) +
+  geom_point(alpha = 0.4) +
+  geom_abline(
+    slope = 1,
+    intercept = 0,
+    linetype = "dashed"
+  ) +
+  labs(
+    title = "Neural Network: Predicted vs. Actual BMI",
+    subtitle = paste(
+      "Test R²:",
+      round(results$R2, 3)
+    ),
+    x = "Actual BMI",
+    y = "Predicted BMI"
+  ) +
+  theme_minimal()
+```
+
+# 10. Optional Architecture Visualization
+
+With many dummy-encoded predictors, the fitted network diagram can become visually
+dense. It is included for completeness but is not the primary interpretation tool.
+
+```{r}
+plotnet(
+  nn_model$finalModel,
+  max_sp = TRUE
+)
+```
+
+# 11. Final Model Summary
+
+```{r}
+cat("=== FINAL MODEL SUMMARY ===\n")
+cat("Method         : Neural Network Regression\n")
+cat("Test R²        :", round(results$R2, 3), "\n")
+cat(sprintf("Test RMSE      : %.2f BMI units\n", results$RMSE))
+cat(sprintf("Test MAE       : %.2f BMI units\n", results$MAE))
+```
+
+# Limitations
+
+- Neural-network training uses 2,000 observations rather than the full training set.
+- Neural networks are less interpretable than linear regression models.
+- Variable-importance scores describe relative contribution, not causal effects or
+  statistical significance.
+- Fat percentage is a body-composition measurement, so the model should be described as
+  excluding height and weight rather than as using only lifestyle and dietary features.
+- Results should be regenerated from this cleaned portfolio version before publishing
+  updated performance metrics.
