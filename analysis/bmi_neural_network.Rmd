@@ -38,6 +38,7 @@ required <- c(
   "tidyverse",
   "caret",
   "nnet",
+  "here",
   "NeuralNetTools"
 )
 
