@@ -101,6 +101,9 @@ bmi-neural-network-r/
 ├── analysis/
 │   └── bmi_neural_network.Rmd
 │
+├── data/
+│   └── readme.txt
+│
 └── docs/
     ├── AMS597 Lifestyle Dataset Analysis.pdf
     │
