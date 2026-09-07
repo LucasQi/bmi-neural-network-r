@@ -89,6 +89,8 @@ My work focused specifically on **Research Question 3** of the team project:
 
 ## Repository Structure
 
+## Repository Structure
+
 ```text
 bmi-neural-network-r/
 │
@@ -99,12 +101,8 @@ bmi-neural-network-r/
 ├── analysis/
 │   └── bmi_neural_network.Rmd
 │
-├── data/
-│   └── Final_data.csv
-│
 └── docs/
     ├── AMS597 Lifestyle Dataset Analysis.pdf
-    ├── AMS597 Project Slides.pptx
     │
     └── images/
         ├── bmi_by_diet_type.png
@@ -117,7 +115,7 @@ bmi-neural-network-r/
 
 The original AMS 597 project was completed collaboratively by a four-person team.
 
-This repository highlights my individual contribution to Research Question 3, which focused on neural-network modeling for BMI prediction. The full team report and presentation are included in docs/ for project context.
+This repository highlights my individual contribution to Research Question 3, which focused on neural-network modeling for BMI prediction. The full team report is included in `docs/` for additional project context.
 
 ## Dataset
 
