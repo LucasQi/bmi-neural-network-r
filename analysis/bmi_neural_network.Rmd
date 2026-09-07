@@ -59,7 +59,9 @@ Place the source dataset at `data/Final_data.csv`.
 ```{r}
 set.seed(123)
 
-data_path <- ("Final_data.csv")
+library(here)
+
+data_path <- here("data", "Final_data.csv")
 
 if (!file.exists(data_path)) {
   stop(
