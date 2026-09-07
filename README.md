@@ -86,9 +86,6 @@ My work focused specifically on **Research Question 3** of the team project:
 - Evaluated performance using R², RMSE, and MAE
 - Created model and result visualizations
 
-
-## Repository Structure
-
 ## Repository Structure
 
 ```text
