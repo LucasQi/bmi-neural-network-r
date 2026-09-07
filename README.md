@@ -86,13 +86,6 @@ My work focused specifically on **Research Question 3** of the team project:
 - Evaluated performance using R², RMSE, and MAE
 - Created model and result visualizations
 
-## Limitations
-
-The neural network was trained on a 2,000-observation subset of the larger dataset to reduce computational cost. Although this improved training efficiency, using the complete training dataset could potentially improve model stability and predictive performance.
-
-Neural networks are also less interpretable than traditional regression models, making it more difficult to explain the effect of individual predictors.
-
-In addition, body-fat percentage is a body-composition measurement. Therefore, this project is more accurately described as predicting BMI **without height or weight**, rather than predicting BMI exclusively from lifestyle and dietary information.
 
 ## Repository Structure
 
@@ -132,6 +125,15 @@ The project uses the Life Style Data dataset published on Kaggle by Jockeroika (
 
 The original dataset contains approximately 20,000 observations covering demographic characteristics, exercise activity, dietary information, and physiological measurements.
 
+## Limitations
+
+The original dataset contained approximately 20,000 observations, but due to limited computational resources, the neural network was trained on a random subset of 2,000 observations.
+
+This reduced training time and made cross-validation more computationally feasible, but it may have limited the model's ability to learn from the full diversity of the dataset. Training on the complete dataset with greater computational resources could potentially improve model stability and predictive performance.
+
+To further reduce computational cost, 5-fold cross-validation was used instead of a more computationally intensive 10-fold procedure.
+
+Neural networks are also less interpretable than traditional regression models, making it more difficult to explain the contribution of individual predictors.
 
 ## Future Improvements
 
